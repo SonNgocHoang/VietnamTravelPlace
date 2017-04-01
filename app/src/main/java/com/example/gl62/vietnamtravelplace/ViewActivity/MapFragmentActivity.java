@@ -1,15 +1,20 @@
 package com.example.gl62.vietnamtravelplace.ViewActivity;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Build;
+import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.content.ContextCompat;
 import android.os.Bundle;
 import android.support.v7.app.AlertDialog;
+import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
@@ -19,9 +24,10 @@ import android.widget.Toast;
 import com.example.gl62.vietnamtravelplace.R;
 import com.example.gl62.vietnamtravelplace.Retrofit.APIinterface;
 import com.example.gl62.vietnamtravelplace.Retrofit.ApiClient;
-import com.example.gl62.vietnamtravelplace.Retrofit.ListCategory;
-import com.example.gl62.vietnamtravelplace.Retrofit.ListPlace;
+import com.example.gl62.vietnamtravelplace.Retrofit.ListCategoryAPI;
+import com.example.gl62.vietnamtravelplace.Retrofit.ListPlaceAPI;
 import com.example.gl62.vietnamtravelplace.object.Category;
+import com.example.gl62.vietnamtravelplace.object.Cover;
 import com.example.gl62.vietnamtravelplace.object.Place;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -38,6 +44,7 @@ import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 import retrofit2.Call;
@@ -49,7 +56,7 @@ import static com.google.android.gms.maps.GoogleMap.*;
 public class MapFragmentActivity extends FragmentActivity implements OnMapReadyCallback,
         GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener,
-        LocationListener, OnMarkerClickListener {
+        LocationListener, OnMarkerClickListener, OnInfoWindowClickListener {
 
     GoogleMap mGoogleMap;
     SupportMapFragment mapFrag;
@@ -57,30 +64,40 @@ public class MapFragmentActivity extends FragmentActivity implements OnMapReadyC
     GoogleApiClient mGoogleApiClient;
     Location mLastLocation;
     Marker mCurrLocationMarker, placeMarker;
+
     ImageView img_filter_out, img_filter_in;
     RelativeLayout RlFilter;
 
     List<Place> arlPlace = new ArrayList<>();
+    List<Place> arlFuel = new ArrayList<>();
+    HashMap<String, Place> hmExtraDataMarker = new HashMap<>();
+
     List<Category> arlCategory = new ArrayList<>();
+
+    //init retrofit api
     APIinterface apIinterface = ApiClient.getClient().create(APIinterface.class);
-    Call<ListPlace> callP = apIinterface.loadListP();
-    Call<ListCategory> callC = apIinterface.loadListC();
+    Call<ListPlaceAPI> callP = apIinterface.loadListP();
+    Call<ListCategoryAPI> callC = apIinterface.loadListC();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_map_fragment);
+        checkInternetConnection();
         init();
-        setFilter();
+        setUpFilter();
         getPlacefromServer();
         getCategoryfromServer();
 
         mapFrag = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.mapView);
         mapFrag.getMapAsync(this);
+
     }
 
-    public void setMarker(final List<Place> listPlace) {
+    public void setMarker(List<Place> listPlace) {
+
         for (int i = 0; i < listPlace.size(); i++) {
+            //get data of place
             LatLng latLng = new LatLng(Double.valueOf(listPlace.get(i).getLatitude()), Double.valueOf(listPlace.get(i).getLongitude()));
             MarkerOptions markerOptions = new MarkerOptions();
             markerOptions.title(listPlace.get(i).getNameVi());
@@ -132,30 +149,14 @@ public class MapFragmentActivity extends FragmentActivity implements OnMapReadyC
                     markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_MAGENTA));
                     break;
             }
-
-
-            final int finalI = i;
-            mGoogleMap.setInfoWindowAdapter(new InfoWindowAdapter() {
-                @Override
-                public View getInfoWindow(Marker marker) {
-                    return null;
-                }
-
-                @Override
-                public View getInfoContents(Marker marker) {
-                    View v = getLayoutInflater().inflate(R.layout.information_window, null);
-                    TextView tvPlaceName = (TextView) v.findViewById(R.id.tvPlaceName);
-                    TextView tvDesc = (TextView) v.findViewById(R.id.tvDesc);
-
-                    tvPlaceName.setText(listPlace.get(finalI).getNameVi());
-                    tvDesc.setText(listPlace.get(finalI).getShortDescriptionVi());
-
-                    return null;
-                }
-            });
             placeMarker = mGoogleMap.addMarker(markerOptions);
-            mGoogleMap.setOnMarkerClickListener(this);
+
+            //put map extra data for marker
+            hmExtraDataMarker.put(placeMarker.getId(), listPlace.get(i));
         }
+        //set Listener for marker and inforwindow
+        mGoogleMap.setOnMarkerClickListener(this);
+        mGoogleMap.setOnInfoWindowClickListener(this);
     }
 
     public void init() {
@@ -164,7 +165,8 @@ public class MapFragmentActivity extends FragmentActivity implements OnMapReadyC
         RlFilter = (RelativeLayout) findViewById(R.id.iclFilter);
     }
 
-    public void setFilter() {
+    public void setUpFilter() {
+        //hide from beginning
         img_filter_in.setVisibility(View.GONE);
         RlFilter.setVisibility(View.GONE);
         img_filter_out.setVisibility(View.VISIBLE);
@@ -180,10 +182,10 @@ public class MapFragmentActivity extends FragmentActivity implements OnMapReadyC
                 .start();
 
         img_filter_out.animate()
-                .translationX(-25)
+                .translationX(-32)
                 .setDuration(0)
                 .start();
-
+        //show filter when click out btn
         img_filter_out.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -202,7 +204,7 @@ public class MapFragmentActivity extends FragmentActivity implements OnMapReadyC
                         .start();
             }
         });
-
+        //hide filter again
         img_filter_in.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -222,7 +224,7 @@ public class MapFragmentActivity extends FragmentActivity implements OnMapReadyC
                         .start();
 
                 img_filter_out.animate()
-                        .translationX(-25)
+                        .translationX(-32)
                         .setDuration(500)
                         .start();
             }
@@ -231,77 +233,35 @@ public class MapFragmentActivity extends FragmentActivity implements OnMapReadyC
 
     public void getPlacefromServer() {
 
-        callP.enqueue(new Callback<ListPlace>() {
+        callP.enqueue(new Callback<ListPlaceAPI>() {
             @Override
-            public void onResponse(Call<ListPlace> call, Response<ListPlace> response) {
+            public void onResponse(Call<ListPlaceAPI> call, Response<ListPlaceAPI> response) {
                 if (response.isSuccessful()) {
                     List<Place> listPlace = response.body().getPlaces();
-                    setMarker(listPlace);
                     setListPlace(listPlace);
                 }
             }
 
             @Override
-            public void onFailure(Call<ListPlace> call, Throwable t) {
+            public void onFailure(Call<ListPlaceAPI> call, Throwable t) {
 
             }
         });
     }
 
     public void getCategoryfromServer() {
-        callC.enqueue(new Callback<ListCategory>() {
+        callC.enqueue(new Callback<ListCategoryAPI>() {
             @Override
-            public void onResponse(Call<ListCategory> call, Response<ListCategory> response) {
+            public void onResponse(Call<ListCategoryAPI> call, Response<ListCategoryAPI> response) {
                 List<Category> listCategory = response.body().getCategories();
                 setListCategory(listCategory);
             }
-
             @Override
-            public void onFailure(Call<ListCategory> call, Throwable t) {
+            public void onFailure(Call<ListCategoryAPI> call, Throwable t) {
 
             }
         });
-    }
-
-    public void setListPlace(List<Place> listPlace) {
-        arlPlace = listPlace;
-    }
-
-    public void setListCategory(List<Category> listCategory) {
-        arlCategory = listCategory;
-    }
-
-    @Override
-    public void onPause() {
-        super.onPause();
-
-        //stop location updates when Activity is no longer active
-        if (mGoogleApiClient != null) {
-            LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
-        }
-    }
-
-    @Override
-    public void onMapReady(GoogleMap googleMap) {
-        mGoogleMap = googleMap;
-        mGoogleMap.setMapType(MAP_TYPE_HYBRID);
-
-        //Initialize Google Play Services
-        if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.M || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            if (ContextCompat.checkSelfPermission(this,
-                    Manifest.permission.ACCESS_FINE_LOCATION)
-                    == PackageManager.PERMISSION_GRANTED) {
-                //Location Permission already granted
-                buildGoogleApiClient();
-                mGoogleMap.setMyLocationEnabled(true);
-            } else {
-                //Request Location Permission
-                checkLocationPermission();
-            }
-        } else {
-            buildGoogleApiClient();
-            mGoogleMap.setMyLocationEnabled(true);
-        }
+        Log.d("Activity", "getCategoryfromServer: ");
     }
 
     protected synchronized void buildGoogleApiClient() {
@@ -312,54 +272,6 @@ public class MapFragmentActivity extends FragmentActivity implements OnMapReadyC
                 .build();
         mGoogleApiClient.connect();
     }
-
-
-    @Override
-    public void onConnected(Bundle bundle) {
-        mLocationRequest = new LocationRequest();
-        mLocationRequest.setInterval(1000);
-        mLocationRequest.setFastestInterval(1000);
-        mLocationRequest.setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
-        if (ContextCompat.checkSelfPermission(this,
-                Manifest.permission.ACCESS_FINE_LOCATION)
-                == PackageManager.PERMISSION_GRANTED) {
-            LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
-        }
-    }
-
-    @Override
-    public void onConnectionSuspended(int i) {
-    }
-
-    @Override
-    public void onConnectionFailed(ConnectionResult connectionResult) {
-    }
-
-    @Override
-    public void onLocationChanged(Location location) {
-        mLastLocation = location;
-
-        if (mCurrLocationMarker != null) {
-            mCurrLocationMarker.remove();
-        }
-
-        //Place current location marker
-        LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
-        MarkerOptions markerOptions = new MarkerOptions();
-        markerOptions.position(latLng);
-        markerOptions.title("Current Position");
-        markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_MAGENTA));
-        mCurrLocationMarker = mGoogleMap.addMarker(markerOptions);
-
-        //move map camera
-        mGoogleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 7));
-//        }
-        //optionally, stop location updates if only current location is needed
-//        if (mGoogleApiClient != null) {
-//            LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
-    }
-
-    public static final int MY_PERMISSIONS_REQUEST_LOCATION = 99;
 
     private void checkLocationPermission() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
@@ -396,6 +308,144 @@ public class MapFragmentActivity extends FragmentActivity implements OnMapReadyC
             }
         }
     }
+
+    public void checkInternetConnection(){
+        ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo networkInfo = cm.getActiveNetworkInfo();
+
+        boolean isConnected = networkInfo != null
+                && networkInfo.isConnectedOrConnecting();
+        if(!isConnected){
+            final View view = findViewById(R.id.clSnackbar);
+            Snackbar snackbar = Snackbar
+                    .make(view, "Internet Connection Failed", Snackbar.LENGTH_LONG);
+            snackbar.show();
+        }
+    }
+
+
+    public void setListPlace(List<Place> listPlace) {
+        //set up list Place
+        arlPlace = listPlace;
+        //set up all marker
+        setMarker(arlPlace);
+
+        List<Place> lPlace = new ArrayList<>();
+        for (int i = 0; i <arlCategory.size() ; i++) {
+            for (int j = 0; j <arlPlace.size() ; j++) {
+                if(arlPlace.get(j).getCategoryId()==arlCategory.get(i).getId()){
+                    lPlace.add(arlPlace.get(j));
+                }
+                if(arlPlace.get(i).getNameVi().startsWith("Cây Xăng")){
+                    arlFuel.add(arlPlace.get(i));
+                }
+            }
+            //set all place.get(i).getCategory(i) contains with categoryid
+            arlCategory.get(i).setlPlace(lPlace);
+            //a new listPlace?
+            lPlace = new ArrayList<>();
+//            if(arlCategory.get(i).getId() == 2
+//                    && arlCategory.get(i).getId() == 4
+//                    && arlCategory.get(i).getId() == 5
+//                    && arlCategory.get(i).getId() ==8
+//                    && arlCategory.get(i).getId() ==10
+//                    && arlCategory.get(i).getId() ==13){
+//
+//            }
+        }
+    }
+
+    public void setListCategory(List<Category> listCategory) {
+        //set up list Category
+        arlCategory = listCategory;
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+
+        //stop location updates when Activity is no longer active
+        if (mGoogleApiClient != null) {
+            LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
+        }
+    }
+
+    @Override
+    public void onMapReady(GoogleMap googleMap) {
+        mGoogleMap = googleMap;
+        mGoogleMap.setMapType(MAP_TYPE_HYBRID);
+
+        //Initialize Google Play Services
+        if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.M || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            if (ContextCompat.checkSelfPermission(this,
+                    Manifest.permission.ACCESS_FINE_LOCATION)
+                    == PackageManager.PERMISSION_GRANTED) {
+                //Location Permission already granted
+                buildGoogleApiClient();
+                mGoogleMap.setMyLocationEnabled(true);
+            } else {
+                //Request Location Permission
+                checkLocationPermission();
+            }
+        } else {
+            buildGoogleApiClient();
+            mGoogleMap.setMyLocationEnabled(true);
+        }
+    }
+
+    @Override
+    public void onConnected(Bundle bundle) {
+        mLocationRequest = new LocationRequest();
+        mLocationRequest.setInterval(1000);
+        mLocationRequest.setFastestInterval(1000);
+        mLocationRequest.setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
+        if (ContextCompat.checkSelfPermission(this,
+                Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) {
+            LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
+        }
+    }
+
+    @Override
+    public void onConnectionSuspended(int i) {
+    }
+
+    @Override
+    public void onConnectionFailed(ConnectionResult connectionResult) {
+        //show snack when map load failed
+        final View view = findViewById(R.id.clSnackbar);
+        Snackbar snackbar = Snackbar
+                .make(view, "Loadding Map Failed", Snackbar.LENGTH_SHORT);
+        snackbar.show();
+    }
+
+    @Override
+    public void onLocationChanged(Location location) {
+        //set last location
+        mLastLocation = location;
+
+        if (mCurrLocationMarker != null) {
+            mCurrLocationMarker.remove();
+        }
+
+        //Place current location marker
+        LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
+        MarkerOptions markerOptions = new MarkerOptions();
+        markerOptions.position(latLng);
+        markerOptions.title("Current Position");
+        markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_MAGENTA));
+        mCurrLocationMarker = mGoogleMap.addMarker(markerOptions);
+
+        //move map camera
+        mGoogleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 7));
+
+        //optionally, stop location updates if only current location is needed
+        if (mGoogleApiClient != null) {
+            LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
+        }
+    }
+
+    public static final int MY_PERMISSIONS_REQUEST_LOCATION = 99;
 
     @Override
     public void onRequestPermissionsResult(int requestCode,
@@ -434,8 +484,61 @@ public class MapFragmentActivity extends FragmentActivity implements OnMapReadyC
 
     @Override
     public boolean onMarkerClick(Marker marker) {
-        placeMarker = marker;
-        placeMarker.showInfoWindow();
+        if (!marker.getTitle().equals("Current Position")) {
+            //get Place data from hashmap
+            final Place place = hmExtraDataMarker.get(marker.getId());
+            List<Cover> arlCover = new ArrayList<>();
+            String url = "";
+            for (int i = 0; i <arlCover.size() ; i++) {
+              url =  arlCover.get(i).getUrl();
+            }
+            //Custom Adapter infowindow
+            mGoogleMap.setInfoWindowAdapter(new InfoWindowAdapter() {
+                @Override
+                public View getInfoWindow(Marker marker) {
+                    return null;
+                }
+
+                @Override
+                public View getInfoContents(Marker marker) {
+                    View v = getLayoutInflater().inflate(R.layout.information_window, null);
+                    TextView tvPlaceName = (TextView) v.findViewById(R.id.tvPlaceName);
+                    TextView tvDesc = (TextView) v.findViewById(R.id.tvDesc);
+
+                    tvPlaceName.setText(place.getNameVi());
+                    tvDesc.setText(place.getAddressVi());
+
+                    return v;
+                }
+            });
+            if (marker.isInfoWindowShown()) {
+                marker.hideInfoWindow();
+            } else {
+                marker.showInfoWindow();
+            }
+        } else {
+            mGoogleMap.setInfoWindowAdapter(new InfoWindowAdapter() {
+
+                @Override
+                public View getInfoWindow(Marker marker) {
+                    return null;
+                }
+
+                @Override
+                public View getInfoContents(Marker marker) {
+                    View v = getLayoutInflater().inflate(R.layout.information_window, null);
+                    TextView tvPlaceName = (TextView) v.findViewById(R.id.tvPlaceName);
+
+                    tvPlaceName.setText("Your Current Location");
+                    return v;
+                }
+            });
+        }
         return false;
+    }
+
+    @Override
+    public void onInfoWindowClick(Marker marker) {
+
     }
 }

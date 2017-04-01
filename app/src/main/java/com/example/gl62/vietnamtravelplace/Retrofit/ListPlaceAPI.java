@@ -10,7 +10,7 @@ import java.util.List;
  * Created by GL62 on 3/30/2017.
  */
 
-public class ListPlace {
+public class ListPlaceAPI {
     @SerializedName("data")
     @Expose
     private List<Place> places = null;

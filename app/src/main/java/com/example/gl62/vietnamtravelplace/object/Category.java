@@ -6,6 +6,7 @@ import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Created by GL62 on 3/29/2017.
@@ -13,8 +14,7 @@ import java.util.ArrayList;
 
 public class Category {
 
-    private ArrayList<Place> lPlace = null;
-    private boolean bCheck = true;
+    private List<Place> lPlace = null;
 
     @SerializedName("id")
     @Expose
@@ -39,19 +39,11 @@ public class Category {
         this.nameVi = nameVi;
     }
 
-    public ArrayList<Place> getlPlace() {
+    public List<Place> getlPlace() {
         return lPlace;
     }
 
-    public void setlPlace(ArrayList<Place> lPlace) {
+    public void setlPlace(List<Place> lPlace) {
         this.lPlace = lPlace;
-    }
-
-    public boolean isbCheck() {
-        return bCheck;
-    }
-
-    public void setbCheck(boolean bCheck) {
-        this.bCheck = bCheck;
     }
 }

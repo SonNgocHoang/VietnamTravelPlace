@@ -10,7 +10,7 @@ import java.util.List;
  * Created by GL62 on 3/30/2017.
  */
 
-public class ListCategory {
+public class ListCategoryAPI {
     @SerializedName("code")
     @Expose
     private Integer code;

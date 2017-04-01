@@ -11,10 +11,10 @@ public interface APIinterface {
 
 
     @GET("/api/4.2/place")
-    Call<ListPlace> loadListP();
+    Call<ListPlaceAPI> loadListP();
 
     @GET("/api/4.2/category")
-    Call<ListCategory>loadListC();
+    Call<ListCategoryAPI>loadListC();
 
 
 }

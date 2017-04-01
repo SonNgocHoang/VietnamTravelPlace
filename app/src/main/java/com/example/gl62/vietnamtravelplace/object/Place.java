@@ -1,5 +1,6 @@
 package com.example.gl62.vietnamtravelplace.object;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 
 /**
@@ -11,7 +12,7 @@ import java.util.List;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
-public class Place {
+public class Place implements Serializable {
 
     @SerializedName("id")
     @Expose
