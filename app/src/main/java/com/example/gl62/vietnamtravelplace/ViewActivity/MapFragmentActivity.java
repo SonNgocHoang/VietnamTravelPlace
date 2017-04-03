@@ -3,6 +3,7 @@ package com.example.gl62.vietnamtravelplace.ViewActivity;
 import android.Manifest;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.net.ConnectivityManager;
@@ -42,6 +43,7 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.squareup.picasso.Picasso;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -65,13 +67,18 @@ public class MapFragmentActivity extends FragmentActivity implements OnMapReadyC
     Location mLastLocation;
     Marker mCurrLocationMarker, placeMarker;
 
-    ImageView img_filter_out, img_filter_in;
+    ImageView img_filter_out, img_filter_in, img_scene, img_pagoda, img_atm, img_restaurant, img_fuel;
     RelativeLayout RlFilter;
 
     List<Place> arlPlace = new ArrayList<>();
-    List<Place> arlFuel = new ArrayList<>();
     HashMap<String, Place> hmExtraDataMarker = new HashMap<>();
+    HashMap<String, Marker> hmMarker = new HashMap<>();
 
+    //For fuel because they doesn't have Category
+    List<Place> arlFuel = new ArrayList<>();
+
+    //this for filter
+    List<ImageView> lFItemMenu = new ArrayList<>();
     List<Category> arlCategory = new ArrayList<>();
 
     //init retrofit api
@@ -85,12 +92,14 @@ public class MapFragmentActivity extends FragmentActivity implements OnMapReadyC
         setContentView(R.layout.activity_map_fragment);
         checkInternetConnection();
         init();
-        setUpFilter();
         getPlacefromServer();
         getCategoryfromServer();
+        setUpFilter();
 
         mapFrag = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.mapView);
         mapFrag.getMapAsync(this);
+
+        actionMenuFilter();
 
     }
 
@@ -151,8 +160,10 @@ public class MapFragmentActivity extends FragmentActivity implements OnMapReadyC
             }
             placeMarker = mGoogleMap.addMarker(markerOptions);
 
+
             //put map extra data for marker
             hmExtraDataMarker.put(placeMarker.getId(), listPlace.get(i));
+            hmMarker.put(listPlace.get(i).getId().toString(), placeMarker);
         }
         //set Listener for marker and inforwindow
         mGoogleMap.setOnMarkerClickListener(this);
@@ -162,7 +173,19 @@ public class MapFragmentActivity extends FragmentActivity implements OnMapReadyC
     public void init() {
         img_filter_in = (ImageView) findViewById(R.id.img_filter_in);
         img_filter_out = (ImageView) findViewById(R.id.img_filter_out);
+        img_scene = (ImageView) findViewById(R.id.img_scene);
+        img_atm = (ImageView) findViewById(R.id.img_atm);
+        img_pagoda = (ImageView) findViewById(R.id.img_pagoda);
+        img_fuel = (ImageView) findViewById(R.id.img_fuel);
+        img_restaurant = (ImageView) findViewById(R.id.img_restaurant);
         RlFilter = (RelativeLayout) findViewById(R.id.iclFilter);
+
+        lFItemMenu.add(img_scene);
+        lFItemMenu.add(img_pagoda);
+        lFItemMenu.add(img_restaurant);
+        lFItemMenu.add(img_atm);
+        lFItemMenu.add(img_fuel);
+
     }
 
     public void setUpFilter() {
@@ -256,6 +279,7 @@ public class MapFragmentActivity extends FragmentActivity implements OnMapReadyC
                 List<Category> listCategory = response.body().getCategories();
                 setListCategory(listCategory);
             }
+
             @Override
             public void onFailure(Call<ListCategoryAPI> call, Throwable t) {
 
@@ -309,13 +333,13 @@ public class MapFragmentActivity extends FragmentActivity implements OnMapReadyC
         }
     }
 
-    public void checkInternetConnection(){
+    public void checkInternetConnection() {
         ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
         NetworkInfo networkInfo = cm.getActiveNetworkInfo();
 
         boolean isConnected = networkInfo != null
                 && networkInfo.isConnectedOrConnecting();
-        if(!isConnected){
+        if (!isConnected) {
             final View view = findViewById(R.id.clSnackbar);
             Snackbar snackbar = Snackbar
                     .make(view, "Internet Connection Failed", Snackbar.LENGTH_LONG);
@@ -323,41 +347,146 @@ public class MapFragmentActivity extends FragmentActivity implements OnMapReadyC
         }
     }
 
+    public void setListCategory(List<Category> listCategory) {
+        //set up list Category
+        arlCategory = listCategory;
+    }
 
     public void setListPlace(List<Place> listPlace) {
         //set up list Place
         arlPlace = listPlace;
         //set up all marker
         setMarker(arlPlace);
-
         List<Place> lPlace = new ArrayList<>();
-        for (int i = 0; i <arlCategory.size() ; i++) {
-            for (int j = 0; j <arlPlace.size() ; j++) {
-                if(arlPlace.get(j).getCategoryId()==arlCategory.get(i).getId()){
+        for (int i = 0; i < arlCategory.size(); i++) {
+            for (int j = 0; j < arlPlace.size(); j++) {
+                if (arlPlace.get(j).getCategoryId() == arlCategory.get(i).getId()) {
                     lPlace.add(arlPlace.get(j));
-                }
-                if(arlPlace.get(i).getNameVi().startsWith("Cây Xăng")){
-                    arlFuel.add(arlPlace.get(i));
                 }
             }
             //set all place.get(i).getCategory(i) contains with categoryid
             arlCategory.get(i).setlPlace(lPlace);
             //a new listPlace?
             lPlace = new ArrayList<>();
-//            if(arlCategory.get(i).getId() == 2
-//                    && arlCategory.get(i).getId() == 4
-//                    && arlCategory.get(i).getId() == 5
-//                    && arlCategory.get(i).getId() ==8
-//                    && arlCategory.get(i).getId() ==10
-//                    && arlCategory.get(i).getId() ==13){
-//
-//            }
         }
+        for (int i = 0; i <arlPlace.size() ; i++) {
+            if (arlPlace.get(i).getCategoryId()==0) {
+                arlFuel.add(arlPlace.get(i));
+            }
+        }
+        Log.d("ACTIVITY", "setListPlace: "+arlFuel.size());
     }
 
-    public void setListCategory(List<Category> listCategory) {
-        //set up list Category
-        arlCategory = listCategory;
+    public void actionMenuFilter(){
+        //set Filter Menu Action
+        img_scene.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                onFilterItemSelected(0);
+            }
+        });
+        img_pagoda.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                onFilterItemSelected(1);
+            }
+        });
+        img_restaurant.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                onFilterItemSelected(2);
+            }
+        });
+        img_atm.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                onFilterItemSelected(3);
+            }
+        });
+        img_fuel.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                onFilterItemSelected(4);
+            }
+        });
+    }
+
+    public void onFilterItemSelected(int j) {
+        for (int i = 0; i < arlCategory.size(); i++) {
+            //get parent menu Sence
+            if (j == 0 && (arlCategory.get(i).getId() == 2
+                    || arlCategory.get(i).getId() == 4
+                    || arlCategory.get(i).getId() == 5
+                    || arlCategory.get(i).getId() == 8
+                    || arlCategory.get(i).getId() == 10
+                    || arlCategory.get(i).getId() == 12
+                    || arlCategory.get(i).getId() == 13)) {
+                List<Place> place = arlCategory.get(i).getlPlace();
+                for (int k = 0; k < place.size(); k++) {
+                    Marker marker = hmMarker.get(place.get(k).getId().toString());
+                    if (marker.isVisible()) {
+                        marker.setVisible(false);
+                        img_scene.setAlpha(0.3f);
+                    } else {
+                        marker.setVisible(true);
+                        img_scene.setAlpha(1f);
+                    }
+                }
+            }
+            //get parent menu Relics
+            if (j == 1 && (arlCategory.get(i).getId() == 1
+                    || arlCategory.get(i).getId() == 6
+                    || arlCategory.get(i).getId() == 7
+                    || arlCategory.get(i).getId() == 1)) {
+                List<Place> place = arlCategory.get(i).getlPlace();
+                for (int k = 0; k < place.size(); k++) {
+                    Marker marker = hmMarker.get(place.get(k).getId().toString());
+                    if (marker.isVisible()) {
+                        marker.setVisible(false);
+                        img_pagoda.setAlpha(0.3f);
+                    } else {
+                        marker.setVisible(true);
+                        img_pagoda.setAlpha(1f);
+                    }
+                }
+            }
+            //get parent menu restaurant
+            if (j == 2 && (arlCategory.get(i).getId() == 3
+                    || arlCategory.get(i).getId() == 9)) {
+                List<Place> place = arlCategory.get(i).getlPlace();
+                for (int k = 0; k < place.size(); k++) {
+                    Marker marker = hmMarker.get(place.get(k).getId().toString());
+                    if (marker.isVisible()) {
+                        marker.setVisible(false);
+                        img_restaurant.setAlpha(0.3f);
+                    } else {
+                        marker.setVisible(true);
+                        img_restaurant.setAlpha(1f);
+                    }
+                }
+            }
+            //get parent menu Atm
+            if (j == 3) {
+                final View v = findViewById(R.id.clSnackbar);
+                Snackbar snackbar = Snackbar
+                        .make(v, "Has no parent place", Snackbar.LENGTH_LONG);
+                snackbar.show();
+            }
+            //get parent menu Fuel
+            if (j == 4) {
+                for (int k = 0; k < arlFuel.size(); k++) {
+                    Marker marker = hmMarker.get(arlFuel.get(k).getId().toString());
+                    if (marker.isVisible()) {
+                        marker.setVisible(false);
+                        img_fuel.setAlpha(0.3f);
+                    } else {
+                        marker.setVisible(true);
+                        img_fuel.setAlpha(1f);
+                    }
+                }
+            }
+
+        }
     }
 
     @Override
@@ -487,12 +616,13 @@ public class MapFragmentActivity extends FragmentActivity implements OnMapReadyC
         if (!marker.getTitle().equals("Current Position")) {
             //get Place data from hashmap
             final Place place = hmExtraDataMarker.get(marker.getId());
-            List<Cover> arlCover = new ArrayList<>();
+            List<Cover> arlCover = place.getCover();
             String url = "";
-            for (int i = 0; i <arlCover.size() ; i++) {
-              url =  arlCover.get(i).getUrl();
+            for (int i = 0; i < arlCover.size(); i++) {
+                url = arlCover.get(i).getUrl();
             }
             //Custom Adapter infowindow
+            final String finalUrl = url;
             mGoogleMap.setInfoWindowAdapter(new InfoWindowAdapter() {
                 @Override
                 public View getInfoWindow(Marker marker) {
@@ -504,9 +634,13 @@ public class MapFragmentActivity extends FragmentActivity implements OnMapReadyC
                     View v = getLayoutInflater().inflate(R.layout.information_window, null);
                     TextView tvPlaceName = (TextView) v.findViewById(R.id.tvPlaceName);
                     TextView tvDesc = (TextView) v.findViewById(R.id.tvDesc);
+                    ImageView imgCover = (ImageView)v.findViewById(R.id.img_cover);
 
                     tvPlaceName.setText(place.getNameVi());
                     tvDesc.setText(place.getAddressVi());
+                    Picasso.with(getBaseContext()).load("http://bwhere.vn/uploads/small/"+ finalUrl)
+                            .placeholder(R.mipmap.ic_loading)
+                            .into(imgCover);
 
                     return v;
                 }
@@ -539,6 +673,9 @@ public class MapFragmentActivity extends FragmentActivity implements OnMapReadyC
 
     @Override
     public void onInfoWindowClick(Marker marker) {
-
+        Intent intent = new Intent(getBaseContext(),InforPlace.class);
+        Place place = hmExtraDataMarker.get(marker.getId());
+        intent.putExtra("extra_data_place",place);
+        startActivity(intent);
     }
 }

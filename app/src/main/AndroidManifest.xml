@@ -19,12 +19,19 @@
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyCX4u7vYoLcZh_LZs-57cKBJ35bfdjMMqE" />
 
-        <activity android:name=".ViewActivity.MapFragmentActivity">
+        <activity android:name=".ViewActivity.MapFragmentActivity"
+            android:theme="@style/CustomTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity>
+        <activity android:name=".ViewActivity.InforPlace"
+            android:theme="@style/Actionbar">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.example.gl62.vietnamtravelplace.ViewActivity.MapFragmentActivity" />
         </activity>
     </application>
 

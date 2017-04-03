@@ -6,7 +6,9 @@ package com.example.gl62.vietnamtravelplace.object;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
-public class Image {
+import java.io.Serializable;
+
+public class Image implements Serializable {
 
     @SerializedName("id")
     @Expose

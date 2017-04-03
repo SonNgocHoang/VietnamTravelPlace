@@ -3,11 +3,13 @@ package com.example.gl62.vietnamtravelplace.object;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
+import java.io.Serializable;
+
 /**
  * Created by GL62 on 3/30/2017.
  */
 
-public class Cover {
+public class Cover implements Serializable {
     @SerializedName("id")
     @Expose
     private Integer id;

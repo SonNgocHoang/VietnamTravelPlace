@@ -46,4 +46,5 @@ public class Category {
     public void setlPlace(List<Place> lPlace) {
         this.lPlace = lPlace;
     }
+
 }
